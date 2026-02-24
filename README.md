@@ -1,16 +1,21 @@
-# React + Vite
+# Wafer Yield Visualizer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Overview
+Wafer Yield Visualizer is a web-based post-silicon validation tool designed to analyze semiconductor wafer test data. It visualizes die-level pass/fail distribution and dynamically computes yield metrics from predefined test datasets.
 
-Currently, two official plugins are available:
+## Features
+- Interactive wafer bin map using Canvas API  
+- Pass / Fail classification using SBIN & HBIN  
+- Yield percentage calculation  
+- Multiple wafer datasets (200, 750, 1000 devices)  
+- Responsive dashboard (desktop + mobile)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Technical Stack
+- React.js  
+- JavaScript (ES6)  
+- HTML5 Canvas  
+- CSS  
+- Vite  
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Semiconductor Context
+This tool simulates wafer sort test analysis using ATE-generated data and supports future extension for parametric histogram and Cpk analysis.
