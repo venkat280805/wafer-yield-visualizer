@@ -1,0 +1,45 @@
+/* Input file dropdown styling */
+.file-select {
+  width: 100%;
+  margin: 8px 0 16px 0;
+  padding: 10px 12px;
+
+  background: linear-gradient(
+    to right,
+    #eeeeee,
+    #e2e2e2
+  );
+
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+
+  font-size: 14px;
+  color: #333;
+
+  outline: none;
+  cursor: pointer;
+}
+
+/* On hover */
+.file-select:hover {
+  background: linear-gradient(
+    to right,
+    #e6e6e6,
+    #dcdcdc
+  );
+}
+
+/* On focus (important for pro feel) */
+.file-select:focus {
+  border-color: #999;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08);
+}
+
+/* Sidebar label style */
+.sidebar-label {
+  font-size: 12px;
+  color: #666;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  display: block;
+}
