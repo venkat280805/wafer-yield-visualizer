@@ -1,48 +1,88 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import WaferCanvas from "./components/WaferCanvas";
+import Wafer3D from "./components/Wafer3D";
+import Histogram from "./components/Histogram";
+import { generateWaferData } from "./data/generateWaferData";
 import "./index.css";
 
-/* ==== IMPORT REAL API FILES ==== */
-import waferApi1 from "./data/waferApi1";
-import waferApi2 from "./data/waferApi2";
-import waferApi3 from "./data/waferApi3";
-import waferApi4 from "./data/waferApi4";
-import waferApi5 from "./data/waferApi5";
-import waferApi6 from "./data/waferApi6";
-import waferApi7 from "./data/waferApi7";
-import waferApi8 from "./data/waferApi8";
+/* ==== DATASET CONFIGURATIONS ==== */
+const DATASETS = [
+  { label: "750 Devices (30×30)", total: 750, gridX: 30, gridY: 30 },
+  { label: "1000 Devices (35×35)", total: 1000, gridX: 35, gridY: 35 },
+  { label: "200 Devices (20×20)", total: 200, gridX: 20, gridY: 20 },
+  { label: "500 Devices (25×25)", total: 500, gridX: 25, gridY: 25 },
+];
 
-/* ==== HARDCODED FILE → API MAP (AS PER SAI ANNA) ==== */
-const FILE_MAP = {
-  "input_file1.std": waferApi1,
-  "input_file2.std": waferApi2,
-  "input_file3.std": waferApi3,
-  "input_file4.std": waferApi4,
-  "input_file5.std": waferApi5, // 1000 devices
-  "input_file6.std": waferApi6, // 1000 devices
-  "input_file7.std": waferApi7, // 200 devices
-  "input_file8.std": waferApi8, // 200 devices
-};
+function computeMetrics(bins, totalPossible) {
+  const entries = Object.values(bins);
+  const total = entries.length; // Active filtered dies
+  const pass = entries.filter((b) => b.binCategory === "Pass").length;
+  const failLow = entries.filter((b) => b.binCategory === "Fail-Low").length;
+  const failHigh = entries.filter((b) => b.binCategory === "Fail-High").length;
+  
+  // Yield is based on the currently filtered total vs pass
+  const yieldPct = total > 0 ? ((pass / total) * 100).toFixed(2) : "0.00";
+  return { total, pass, failLow, failHigh, yieldPct };
+}
 
 export default function App() {
-  const [selectedFile, setSelectedFile] = useState("input_file1.std");
+  const [datasetIdx, setDatasetIdx] = useState(0);
+  const [waferData, setWaferData] = useState(() => {
+    const d = DATASETS[0];
+    return generateWaferData(d.total, d.gridX, d.gridY);
+  });
 
-  const waferData = FILE_MAP[selectedFile];
+  // Filter and View state
+  const [filterMode, setFilterMode] = useState("all"); // 'all', 'pass', 'fail'
+  const [failSubMode, setFailSubMode] = useState("all"); // 'all', 'low', 'high'
+  const [viewMode, setViewMode] = useState("3D"); // '2D' or '3D'
 
-  /* ==== METRICS ==== */
-  const totalDevices = Object.keys(waferData.bins).length;
-  const pass = Object.values(waferData.bins).filter(
-    (b) => b.sbin === 1 && b.hbin === 1
-  ).length;
-  const fail = totalDevices - pass;
-  const yieldPercent = ((pass / totalDevices) * 100).toFixed(2);
+  const handleDatasetChange = useCallback((e) => {
+    const idx = Number(e.target.value);
+    setDatasetIdx(idx);
+    const d = DATASETS[idx];
+    setWaferData(generateWaferData(d.total, d.gridX, d.gridY));
+  }, []);
+
+  const handleRegenerate = useCallback(() => {
+    const d = DATASETS[datasetIdx];
+    setWaferData(generateWaferData(d.total, d.gridX, d.gridY));
+  }, [datasetIdx]);
+
+  // Derive filtered bins
+  const filteredBins = useMemo(() => {
+    const filtered = {};
+    for (const [key, bin] of Object.entries(waferData.bins)) {
+      if (filterMode === "all") {
+        filtered[key] = bin;
+      } else if (filterMode === "pass") {
+        if (bin.binCategory === "Pass") filtered[key] = bin;
+      } else if (filterMode === "fail") {
+        if (failSubMode === "all" && bin.binCategory !== "Pass") {
+          filtered[key] = bin;
+        } else if (failSubMode === "low" && bin.binCategory === "Fail-Low") {
+          filtered[key] = bin;
+        } else if (failSubMode === "high" && bin.binCategory === "Fail-High") {
+          filtered[key] = bin;
+        }
+      }
+    }
+    return filtered;
+  }, [waferData.bins, filterMode, failSubMode]);
+
+  // Compute metrics based on FILTERED bins
+  const { total, pass, failLow, failHigh, yieldPct } = computeMetrics(filteredBins);
 
   return (
     <div className="app-root">
       {/* HEADER */}
       <header className="top-header">
-        <h1>Wafer Yield Analytics</h1>
-        <p>Semiconductor wafer test visualization dashboard</p>
+        <div className="header-content">
+          <h1>Wafer Yield Analytics</h1>
+          <p className="subtitle">
+            Semiconductor wafer test visualization with spatial defect simulation
+          </p>
+        </div>
       </header>
 
       {/* BODY */}
@@ -51,7 +91,8 @@ export default function App() {
         <aside className="sidebar">
           <h2>Overview</h2>
           <p className="muted">
-            Wafer-level bin map visualization for yield and failure analysis.
+            Realistic wafer-level bin map with edge effects, cluster defects, and
+            gradient variation.
           </p>
 
           {/* DATASET SELECTOR */}
@@ -59,60 +100,156 @@ export default function App() {
             <div className="metric-label">WAFER DATASET</div>
             <select
               className="input-file-select"
-              value={selectedFile}
-              onChange={(e) => setSelectedFile(e.target.value)}
+              value={datasetIdx}
+              onChange={handleDatasetChange}
             >
-              <option value="input_file1.std">750 Devices</option>
-              <option value="input_file2.std">750 Devices</option>
-              <option value="input_file3.std">750 Devices</option>
-              <option value="input_file4.std">750 Devices</option>
-              <option value="input_file5.std">1000 Devices</option>
-              <option value="input_file6.std">1000 Devices</option>
-              <option value="input_file7.std">200 Devices</option>
-              <option value="input_file8.std">200 Devices</option>
+              {DATASETS.map((d, i) => (
+                <option key={i} value={i}>
+                  {d.label}
+                </option>
+              ))}
             </select>
+          </div>
+
+          <button className="regen-btn" onClick={handleRegenerate}>
+            🔄 Regenerate Data
+          </button>
+
+          {/* FILTER CONTROLS */}
+          <div className="filter-section">
+            <div className="metric-label">DIE FILTER</div>
+            <div className="filter-btn-group">
+              <button 
+                className={`filter-btn ${filterMode === "all" ? "active" : ""}`}
+                onClick={() => setFilterMode("all")}
+              >All</button>
+              <button 
+                className={`filter-btn pass-btn ${filterMode === "pass" ? "active" : ""}`}
+                onClick={() => setFilterMode("pass")}
+              >Pass</button>
+              <button 
+                className={`filter-btn fail-btn ${filterMode === "fail" ? "active" : ""}`}
+                onClick={() => setFilterMode("fail")}
+              >Fail</button>
+            </div>
+
+            {/* FAIL SUB-FILTERS */}
+            {filterMode === "fail" && (
+              <div className="filter-btn-group sub-filters">
+                <button 
+                  className={`filter-btn sub-btn ${failSubMode === "all" ? "active" : ""}`}
+                  onClick={() => setFailSubMode("all")}
+                >All Fails</button>
+                <button 
+                  className={`filter-btn sub-btn low-btn ${failSubMode === "low" ? "active" : ""}`}
+                  onClick={() => setFailSubMode("low")}
+                >Fail-Low</button>
+                <button 
+                  className={`filter-btn sub-btn high-btn ${failSubMode === "high" ? "active" : ""}`}
+                  onClick={() => setFailSubMode("high")}
+                >Fail-High</button>
+              </div>
+            )}
           </div>
 
           <h3>Key Metrics</h3>
 
-          <div className="metric-card">
-            <div className="metric-label">Wafer Size</div>
-            <div className="metric-value">{waferData.wafer}"</div>
+          <div className="metrics-summary">
+            <div className="metric-card">
+              <div className="metric-label">Wafer Size</div>
+              <div className="metric-value">{waferData.wafer}"</div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-label">Visible Dies</div>
+              <div className="metric-value">{total}</div>
+            </div>
           </div>
 
-          <div className="metric-card">
-            <div className="metric-label">Total Devices</div>
-            <div className="metric-value">{totalDevices}</div>
-          </div>
+          <div className="metrics-grid">
+            <div className={`metric-card pass-card ${filterMode !== "all" && filterMode !== "pass" ? "dimmed" : ""}`}>
+              <div className="metric-label">PASS</div>
+              <div className="metric-value">{pass}</div>
+            </div>
 
-          <div className="metric-card">
-            <div className="metric-label">PASS</div>
-            <div className="metric-value">{pass}</div>
-          </div>
+            <div className={`metric-card fail-low-card ${(filterMode === "pass" || (filterMode === "fail" && failSubMode === "high")) ? "dimmed" : ""}`}>
+              <div className="metric-label">FAIL-LOW</div>
+              <div className="metric-value">{failLow}</div>
+            </div>
 
-          <div className="metric-card">
-            <div className="metric-label">FAIL</div>
-            <div className="metric-value">{fail}</div>
-          </div>
+            <div className={`metric-card fail-high-card ${(filterMode === "pass" || (filterMode === "fail" && failSubMode === "low")) ? "dimmed" : ""}`}>
+              <div className="metric-label">FAIL-HIGH</div>
+              <div className="metric-value">{failHigh}</div>
+            </div>
 
-          <div className="metric-card">
-            <div className="metric-label">Yield</div>
-            <div className="metric-value">{yieldPercent}%</div>
+            <div className="metric-card yield-card">
+              <div className="metric-label">YIELD (Visible)</div>
+              <div className="metric-value">{yieldPct}%</div>
+            </div>
           </div>
 
           <div className="legend">
             <h4>Legend</h4>
-            <div>🟢 Pass Die</div>
-            <div>🔴 Fail Die</div>
+            <div className="legend-item">
+              <span
+                className="legend-dot"
+                style={{ background: "#10b981" }}
+              ></span>
+              Pass (20 ≤ v ≤ 70)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-dot"
+                style={{ background: "#ef4444" }}
+              ></span>
+              Fail-Low (v &lt; 20)
+            </div>
+            <div className="legend-item">
+              <span
+                className="legend-dot"
+                style={{ background: "#f59e0b" }}
+              ></span>
+              Fail-High (v &gt; 70)
+            </div>
           </div>
         </aside>
 
         {/* RIGHT PANEL */}
         <main className="main-panel">
-          <div className="wafer-card">
-            <WaferCanvas waferData={waferData} />
-            <div className="wafer-caption">
-              Die-level bin map • Hover to inspect dies
+          <div className="viz-container">
+            <div className="wafer-card" style={{ position: 'relative' }}>
+              
+              {/* 2D / 3D Toggle */}
+              <div style={{ position: 'absolute', top: 24, right: 24, zIndex: 10, display: 'flex' }}>
+                <button 
+                  className={`filter-btn ${viewMode === '2D' ? 'active' : ''}`}
+                  onClick={() => setViewMode('2D')}
+                  style={{ padding: '6px 12px', borderRadius: '6px 0 0 6px', borderRight: 'none', margin: 0 }}
+                >2D</button>
+                <button 
+                  className={`filter-btn ${viewMode === '3D' ? 'active' : ''}`}
+                  onClick={() => setViewMode('3D')}
+                  style={{ padding: '6px 12px', borderRadius: '0 6px 6px 0', margin: 0 }}
+                >3D</button>
+              </div>
+
+              {viewMode === '2D' ? (
+                <WaferCanvas waferData={{ ...waferData, bins: filteredBins }} />
+              ) : (
+                <Wafer3D waferData={{ ...waferData, bins: filteredBins }} />
+              )}
+              
+              <div className="wafer-caption">
+                {viewMode === '2D' 
+                  ? "Die-level bin map • Tap or hover to inspect dies" 
+                  : "Interactive 3D map • Drag to rotate • Scroll to zoom"
+                }
+              </div>
+            </div>
+
+            <div className="histogram-card">
+              {/* Pass the filtered bins to Histogram */}
+              <Histogram bins={filteredBins} />
             </div>
           </div>
         </main>
